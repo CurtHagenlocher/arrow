@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -22,6 +23,7 @@ namespace Apache.Arrow.Memory
     internal sealed class ExportedAllocationOwner : INativeAllocationOwner, IDisposable
     {
         private readonly List<IntPtr> _pointers = new List<IntPtr>();
+        private readonly List<MemoryHandle> _readOnlyMemories = new List<MemoryHandle>();
         private int _allocationSize;
 
         ~ExportedAllocationOwner()
@@ -42,6 +44,13 @@ namespace Apache.Arrow.Memory
             return ptr;
         }
 
+        public unsafe IntPtr Acquire(ReadOnlyMemory<byte> memory)
+        {
+            MemoryHandle handle = memory.Pin();
+            _readOnlyMemories.Add(handle);
+            return (IntPtr)handle.Pointer;
+        }
+
         public void Release(IntPtr ptr, int offset, int length)
         {
             throw new InvalidOperationException();
@@ -57,6 +66,13 @@ namespace Apache.Arrow.Memory
                     _pointers[i] = IntPtr.Zero;
                 }
             }
+
+            foreach (MemoryHandle handle in _readOnlyMemories)
+            {
+                handle.Dispose();
+            }
+            _readOnlyMemories.Clear();
+
             GC.RemoveMemoryPressure(_allocationSize);
             GC.SuppressFinalize(this);
         }

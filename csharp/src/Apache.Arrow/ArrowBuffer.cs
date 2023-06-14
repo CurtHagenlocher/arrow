@@ -81,6 +81,12 @@ namespace Apache.Arrow
                 return true;
             }
 
+            if (_memoryOwner == null)
+            {
+                ptr = newOwner.Acquire(_memory);
+                return true;
+            }
+
             if (_memoryOwner is IOwnableAllocation ownable && ownable.TryAcquire(out ptr, out int offset, out int length))
             {
                 newOwner.Acquire(ptr, offset, length);

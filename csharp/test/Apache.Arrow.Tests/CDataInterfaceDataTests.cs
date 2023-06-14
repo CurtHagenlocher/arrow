@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Apache.Arrow.C;
 using Apache.Arrow.Types;
@@ -88,6 +89,21 @@ namespace Apache.Arrow.Tests
             CArrowArray.Free(cArray);
 
             GC.KeepAlive(releaseCallback);
+        }
+
+        [Fact]
+        public unsafe void CanExportReadOnlyMemory()
+        {
+            IArrowArray array = GetTestArray();
+            Assert.NotNull(array.Data.Buffers);
+
+            var data = new ArrayData(StringType.Default, 5, 1, 0, array.Data.Buffers.Select(b => new ArrowBuffer(b.Memory)).ToArray(), null);
+            var array2 = ArrowArrayFactory.BuildArray(data);
+
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowArrayExporter.ExportArray(array2, cArray);
+
+            CArrowArray.Free(cArray);
         }
     }
 }
