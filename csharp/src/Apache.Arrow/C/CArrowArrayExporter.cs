@@ -26,7 +26,7 @@ namespace Apache.Arrow.C
 #if NET5_0_OR_GREATER
         private static unsafe delegate* unmanaged<CArrowArray*, void> ReleaseArrayPtr => &ReleaseArray;
 #else
-        private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
+        internal unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowArray> s_releaseArray = new NativeDelegate<ReleaseArrowArray>(ReleaseArray);
         private static unsafe delegate* unmanaged[Cdecl]<CArrowArray*, void> ReleaseArrayPtr => (delegate* unmanaged[Cdecl]<CArrowArray*, void>)s_releaseArray.Pointer;
 #endif
@@ -59,7 +59,13 @@ namespace Apache.Arrow.C
             try
             {
                 ConvertArray(allocationOwner, array.Data, cArray);
-                cArray->release = ReleaseArrayPtr;
+
+                #if NETSTANDARD
+                    cArray->release = s_releaseArray.Pointer;
+                #else
+                    cArray->release = ReleaseArrayPtr;
+                #endif
+
                 cArray->private_data = FromDisposable(allocationOwner);
                 allocationOwner = null;
             }
@@ -102,7 +108,13 @@ namespace Apache.Arrow.C
             try
             {
                 ConvertRecordBatch(allocationOwner, batch, cArray);
-                cArray->release = ReleaseArrayPtr;
+
+                #if NETSTANDARD
+                    cArray->release = s_releaseArray.Pointer;
+                #else
+                    cArray->release = ReleaseArrayPtr;
+                #endif
+
                 cArray->private_data = FromDisposable(allocationOwner);
                 allocationOwner = null;
             }
@@ -117,7 +129,13 @@ namespace Apache.Arrow.C
             cArray->length = array.Length;
             cArray->offset = array.Offset;
             cArray->null_count = array.NullCount;
-            cArray->release = ReleaseArrayPtr;
+
+            #if NETSTANDARD
+                cArray->release = s_releaseArray.Pointer;
+            #else
+                cArray->release = ReleaseArrayPtr;
+            #endif
+
             cArray->private_data = null;
 
             cArray->n_buffers = array.Buffers?.Length ?? 0;
@@ -162,7 +180,13 @@ namespace Apache.Arrow.C
             cArray->length = batch.Length;
             cArray->offset = 0;
             cArray->null_count = 0;
-            cArray->release = ReleaseArrayPtr;
+
+            #if NETSTANDARD
+                cArray->release = s_releaseArray.Pointer;
+            #else
+                cArray->release = ReleaseArrayPtr;
+            #endif
+
             cArray->private_data = null;
 
             cArray->n_buffers = 1;
@@ -191,7 +215,12 @@ namespace Apache.Arrow.C
         private unsafe static void ReleaseArray(CArrowArray* cArray)
         {
             Dispose(&cArray->private_data);
-            cArray->release = null;
+
+            #if NETSTANDARD
+                cArray->release = s_releaseArray.Pointer;
+            #else
+                cArray->release = null;
+            #endif
         }
 
         private unsafe static void* FromDisposable(IDisposable disposable)

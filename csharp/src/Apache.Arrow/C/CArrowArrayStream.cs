@@ -35,11 +35,15 @@ namespace Apache.Arrow.C
         ///
         /// Return value: 0 if successful, an `errno`-compatible error code otherwise.
         ///</summary>
+#if NETSTANDARD
+        public IntPtr get_schema;
+#else
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
             [Cdecl]
 #endif
             <CArrowArrayStream*, CArrowSchema*, int> get_schema;
+#endif
 
         /// <summary>
         /// Callback to get the next array. If no error and the array is released, the stream has ended.
@@ -47,11 +51,15 @@ namespace Apache.Arrow.C
         /// 
         /// Return value: 0 if successful, an `errno`-compatible error code otherwise.
         /// </summary>
+#if NETSTANDARD
+        public IntPtr get_next;
+#else
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
             [Cdecl]
 #endif
             <CArrowArrayStream*, CArrowArray*, int> get_next;
+#endif
 
         /// <summary>
         /// Callback to get optional detailed error information. This must only
@@ -62,21 +70,30 @@ namespace Apache.Arrow.C
         /// Return value: pointer to a null-terminated character array describing the last
         /// error, or NULL if no description is available.
         ///</summary>
+
+#if NETSTANDARD
+        public IntPtr get_last_error;
+#else
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
             [Cdecl]
 #endif
             <CArrowArrayStream*, byte*> get_last_error;
-
+#endif
         /// <summary>
         /// Release callback: release the stream's own resources. Note that arrays returned by
         /// get_next must be individually released.
         /// </summary>
+
+#if NETSTANDARD
+        public IntPtr release;
+#else
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
             [Cdecl]
 #endif
             <CArrowArrayStream*, void> release;
+#endif
 
         public void* private_data;
 
@@ -103,11 +120,19 @@ namespace Apache.Arrow.C
         /// </remarks>
         public static void Free(CArrowArrayStream* arrayStream)
         {
-            if (arrayStream->release != null)
+#if NETSTANDARD
+            if (arrayStream->release != IntPtr.Zero)
             {
                 // Call release if not already called.
-                arrayStream->release(arrayStream);
+                Marshal.GetDelegateForFunctionPointer<CArrowArrayStreamExporter.ReleaseArrayStream>(arrayStream->release)(arrayStream);
             }
+#else
+                if (arrayStream->release != null)
+                {
+                    // Call release if not already called.
+                    arrayStream->release(arrayStream);
+                }
+#endif
             Marshal.FreeHGlobal((IntPtr)arrayStream);
         }
     }

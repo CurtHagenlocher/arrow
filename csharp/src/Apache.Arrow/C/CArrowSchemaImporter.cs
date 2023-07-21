@@ -130,7 +130,11 @@ namespace Apache.Arrow.C
                 // We only call release on a root-level schema, not child ones.
                 if (_isRoot && _cSchema->release != null)
                 {
-                    _cSchema->release(_cSchema);
+                    #if NETSTANDARD
+                        Marshal.GetDelegateForFunctionPointer<CArrowSchemaExporter.ReleaseArrowSchema>(_cSchema->release)(_cSchema);
+                    #else
+                        _cSchema->release(_cSchema);
+                    #endif
                 }
             }
 
@@ -292,6 +296,12 @@ namespace Apache.Arrow.C
                 string fieldName = string.IsNullOrEmpty(name) ? "" : name;
 
                 bool nullable = _cSchema->GetFlag(CArrowSchema.ArrowFlagNullable);
+
+                // TODO: proper map support
+                if (name.ToLower().Contains("_map"))
+                {
+                    return new Field(fieldName, NullType.Default, nullable, GetMetadata(_cSchema->metadata));
+                }
 
                 return new Field(fieldName, GetAsType(), nullable, GetMetadata(_cSchema->metadata));
             }
