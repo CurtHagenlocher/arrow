@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -109,18 +110,34 @@ namespace Apache.Arrow.C
                     throw new ArgumentException("Tried to import an array that has already been released.", nameof(cArray));
                 }
                 _cArray = *cArray;
+
+#if NETSTANDARD
+                cArray->release = IntPtr.Zero;
+#else
                 cArray->release = null;
-            }
+#endif
+                }
 
             protected override void FinalRelease()
             {
-                if (_cArray.release != null)
-                {
-                    fixed (CArrowArray* cArray = &_cArray)
+                #if NETSTANDARD
+                    if (_cArray.release != IntPtr.Zero)
                     {
-                        cArray->release(cArray);
+                        // Call release if not already called.
+                        fixed (CArrowArray* cArray = &_cArray)
+                        {
+                            Marshal.GetDelegateForFunctionPointer<CArrowArrayExporter.ReleaseArrowArray>(cArray->release)(cArray);
+                        }
                     }
-                }
+                #else
+                    if (_cArray.release != null)
+                    {
+                        fixed (CArrowArray* cArray = &_cArray)
+                        {
+                            cArray->release(cArray);
+                        }
+                    }
+                #endif
             }
 
             public IArrowArray GetAsArray(IArrowType type)

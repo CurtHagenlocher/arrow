@@ -30,7 +30,7 @@ namespace Apache.Arrow.C
 #if NET5_0_OR_GREATER
         private static unsafe delegate* unmanaged<CArrowSchema*, void> ReleaseSchemaPtr => &ReleaseCArrowSchema;
 #else
-        private unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
+        internal unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArrowSchema);
         private static unsafe readonly NativeDelegate<ReleaseArrowSchema> s_releaseSchema = new NativeDelegate<ReleaseArrowSchema>(ReleaseCArrowSchema);
         private static unsafe delegate* unmanaged[Cdecl]<CArrowSchema*, void> ReleaseSchemaPtr => (delegate* unmanaged[Cdecl]<CArrowSchema*, void>)s_releaseSchema.Pointer;
 #endif
@@ -69,8 +69,11 @@ namespace Apache.Arrow.C
 
             schema->dictionary = ConstructDictionary(datatype);
 
+#if NETSTANDARD
+            Marshal.GetDelegateForFunctionPointer<ReleaseArrowSchema>(schema->release)(schema);
+#else
             schema->release = ReleaseSchemaPtr;
-
+#endif
             schema->private_data = null;
         }
 
@@ -342,7 +345,12 @@ namespace Apache.Arrow.C
             schema->n_children = 0;
             schema->dictionary = null;
             schema->children = null;
+
+#if NETSTANDARD
+            schema->release = IntPtr.Zero;
+#else
             schema->release = null;
-        }
+#endif
+            }
     }
 }

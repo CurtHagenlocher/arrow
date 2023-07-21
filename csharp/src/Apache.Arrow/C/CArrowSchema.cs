@@ -39,12 +39,19 @@ namespace Apache.Arrow.C
         public long n_children;
         public CArrowSchema** children;
         public CArrowSchema* dictionary;
+
+#if NETSTANDARD
+        public IntPtr release;
+#else
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
             [Cdecl]
 #endif
             <CArrowSchema*, void> release;
+#endif
+
         public void* private_data;
+
 
         /// <summary>
         /// Allocate and zero-initialize an unmanaged pointer of this type.
@@ -69,11 +76,20 @@ namespace Apache.Arrow.C
         /// </remarks>
         public static void Free(CArrowSchema* schema)
         {
-            if (schema->release != null)
-            {
-                // Call release if not already called.
-                schema->release(schema);
-            }
+            #if NETSTANDARD
+                if (schema->release != IntPtr.Zero)
+                {
+                    // Call release if not already called.
+                    Marshal.GetDelegateForFunctionPointer<CArrowSchemaExporter.ReleaseArrowSchema>(schema->release)(schema);
+                }
+            #else
+                if (schema->release != null)
+                {
+                    // Call release if not already called.
+                    schema->release(schema);
+                }
+            #endif
+
             Marshal.FreeHGlobal((IntPtr)schema);
         }
 
